@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{% block title %}Telegram Bot Manager{% endblock %}</title>
+    <!-- Materialize CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        .brand-logo { margin-left: 20px; }
+        .nav-wrapper { padding-left: 20px; padding-right: 20px; }
+        .container { margin-top: 30px; }
+        .flash-messages { padding: 10px 0; }
+        .toast { background-color: #323232; }
+        .toast.success { background-color: #43a047; }
+        .toast.error { background-color: #d32f2f; }
+        .toast.warning { background-color: #ffa000; }
+        .toast.info { background-color: #1976d2; }
+    </style>
+</head>
+<body>
+    <nav class="blue darken-3">
+        <div class="nav-wrapper">
+            <a href="{{ url_for('main.index') }}" class="brand-logo">Bot Manager</a>
+            <a href="#" data-target="mobile-nav" class="sidenav-trigger"><i class="material-icons">menu</i></a>
+            <ul id="nav-mobile" class="right hide-on-med-and-down">
+                {% if current_user.is_authenticated %}
+                    <li><a href="{{ url_for('bots.list') }}"><i class="material-icons left">adb</i>My Bots</a></li>
+                    {% if current_user.is_admin %}
+                        <li><a href="{{ url_for('admin.index') }}"><i class="material-icons left">settings</i>Admin</a></li>
+                    {% endif %}
+                    <li><a href="{{ url_for('auth.logout') }}"><i class="material-icons left">exit_to_app</i>Logout</a></li>
+                {% else %}
+                    <li><a href="{{ url_for('auth.login') }}"><i class="material-icons left">login</i>Login</a></li>
+                    <li><a href="{{ url_for('auth.register') }}"><i class="material-icons left">person_add</i>Register</a></li>
+                {% endif %}
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Mobile navigation -->
+    <ul class="sidenav" id="mobile-nav">
+        {% if current_user.is_authenticated %}
+            <li><a href="{{ url_for('bots.list') }}"><i class="material-icons left">adb</i>My Bots</a></li>
+            {% if current_user.is_admin %}
+                <li><a href="{{ url_for('admin.index') }}"><i class="material-icons left">settings</i>Admin</a></li>
+            {% endif %}
+            <li><a href="{{ url_for('auth.logout') }}"><i class="material-icons left">exit_to_app</i>Logout</a></li>
+        {% else %}
+            <li><a href="{{ url_for('auth.login') }}"><i class="material-icons left">login</i>Login</a></li>
+            <li><a href="{{ url_for('auth.register') }}"><i class="material-icons left">person_add</i>Register</a></li>
+        {% endif %}
+    </ul>
+
+    <!-- Flash messages -->
+    <div class="flash-messages">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <script>
+                        document.addEventListener('DOMContentLoaded', function() {
+                            M.toast({
+                                html: '{{ message }}',
+                                classes: '{{ category }}',
+                                displayLength: 4000
+                            });
+                        });
+                    </script>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    {% block content %}{% endblock %}
+
+    <!-- Materialize JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize all Materialize components
+            M.AutoInit();
+            
+            // Initialize sidenav
+            var elems = document.querySelectorAll('.sidenav');
+            var instances = M.Sidenav.init(elems);
+        });
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
