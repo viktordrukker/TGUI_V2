@@ -46,6 +46,16 @@
                                     {% endfor %}
                                 {% endif %}
                                 <span class="helper-text">The URL where Telegram will send updates</span>
+                                <div class="row" style="margin-top: 10px;">
+                                    <div class="col s12">
+                                        <button type="button" class="btn-small blue" onclick="getWebhookUrl()" id="getWebhookBtn" disabled>
+                                            <i class="material-icons left">link</i>Get Webhook URL
+                                        </button>
+                                        <a class="modal-trigger btn-small grey" href="#webhookHelp">
+                                            <i class="material-icons left">help</i>Need Help?
+                                        </a>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -114,6 +124,52 @@
         </div>
     </div>
 </div>
+<!-- Webhook Help Modal -->
+<div id="webhookHelp" class="modal">
+    <div class="modal-content">
+        <h4>Setting Up Webhook URL</h4>
+        
+        <div class="section">
+            <h5>Local Development</h5>
+            <p>For local development, you'll need to use a service like ngrok:</p>
+            <ol>
+                <li>Install ngrok from <a href="https://ngrok.com/download" target="_blank">ngrok.com</a></li>
+                <li>Start ngrok:
+                    <pre class="grey lighten-4 p-2">ngrok http 5000</pre>
+                </li>
+                <li>Use the URL format:
+                    <pre class="grey lighten-4 p-2">https://[your-ngrok-subdomain].ngrok.io/bots/webhook/{{ form.bot_token.data if form.bot_token.data else 'YOUR_BOT_TOKEN' }}</pre>
+                </li>
+            </ol>
+        </div>
+
+        <div class="section">
+            <h5>Production Setup</h5>
+            <p>In production, use your domain:</p>
+            <pre class="grey lighten-4 p-2">https://yourdomain.com/bots/webhook/{{ form.bot_token.data if form.bot_token.data else 'YOUR_BOT_TOKEN' }}</pre>
+        </div>
+
+        <div class="section">
+            <h5>Important Notes</h5>
+            <ul class="browser-default">
+                <li>URL must use HTTPS</li>
+                <li>Domain must have valid SSL certificate</li>
+                <li>Each bot needs a unique webhook URL</li>
+                <li>Replace YOUR_BOT_TOKEN with your actual bot token</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h5>Test Webhook</h5>
+            <p>Test your webhook using curl:</p>
+            <pre class="grey lighten-4 p-2">curl -F "url=YOUR_WEBHOOK_URL" https://api.telegram.org/bot{{ form.bot_token.data if form.bot_token.data else 'YOUR_BOT_TOKEN' }}/setWebhook</pre>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <a href="#!" class="modal-close waves-effect waves-green btn-flat">Got it</a>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -125,6 +181,72 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize select
     var elems = document.querySelectorAll('select');
     M.FormSelect.init(elems);
+
+    // Initialize modal
+    var modalElems = document.querySelectorAll('.modal');
+    M.Modal.init(modalElems);
+
+    // Update webhook examples when bot token changes
+    var tokenInput = document.getElementById('bot_token');
+    var webhookBtn = document.getElementById('getWebhookBtn');
+    
+    if (tokenInput) {
+        tokenInput.addEventListener('input', function(e) {
+            var token = e.target.value || 'YOUR_BOT_TOKEN';
+            // Update examples in modal
+            document.querySelectorAll('pre').forEach(function(pre) {
+                pre.innerHTML = pre.innerHTML.replace(/YOUR_BOT_TOKEN|[0-9]+:[A-Za-z0-9_-]+/, token);
+            });
+            // Enable/disable webhook button
+            webhookBtn.disabled = !token.match(/[0-9]+:[A-Za-z0-9_-]+/);
+        });
+    }
+});
+
+function getWebhookUrl() {
+    var tokenInput = document.getElementById('bot_token');
+    var webhookInput = document.getElementById('webhook_url');
+    var token = tokenInput.value;
+    
+    if (!token) {
+        M.toast({html: 'Please enter a bot token first', classes: 'red'});
+        return;
+    }
+    
+    // Get base URL from current location
+    var baseUrl = window.location.protocol + '//' + window.location.host;
+    var webhookUrl = baseUrl + '/bots/webhook/' + token;
+    
+    // Set webhook URL
+    webhookInput.value = webhookUrl;
+    webhookInput.focus();
+    M.updateTextFields();
+    
+    // Show success message with test command
+    M.toast({
+        html: '<span>Webhook URL generated!</span><button class="btn-flat toast-action" onclick="copyTestCommand()">Copy Test Command</button>',
+        classes: 'green'
+    });
+}
+
+function copyTestCommand() {
+    var webhookInput = document.getElementById('webhook_url');
+    var tokenInput = document.getElementById('bot_token');
+    var command = 'curl -F "url=' + webhookInput.value + '" https://api.telegram.org/bot' + tokenInput.value + '/setWebhook';
+    
+    navigator.clipboard.writeText(command).then(function() {
+        M.toast({html: 'Test command copied to clipboard!', classes: 'blue'});
+    }).catch(function(err) {
+        M.toast({html: 'Error copying command: ' + err, classes: 'red'});
+    });
 });
 </script>
+
+<style>
+pre {
+    padding: 10px;
+    border-radius: 4px;
+    overflow-x: auto;
+}
+</style>
 {% endblock %}

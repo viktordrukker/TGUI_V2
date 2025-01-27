@@ -184,3 +184,52 @@ def update_bot_stats(bot_id):
 
     except Exception as e:
         logger.error(f"Error updating bot stats {bot_id}: {str(e)}")
+
+@bp.route('/webhook/<token>', methods=['POST'])
+def webhook(token):
+    """Handle webhook updates from Telegram."""
+    try:
+        # Find the bot
+        bot = TelegramBot.query.filter_by(bot_token=token).first()
+        if not bot:
+            logger.warning(f"Webhook called for unknown bot token: {token}")
+            return 'Bot not found', 404
+
+        # Get bot instance
+        instance = bot_manager.get_bot(token)
+        if not instance:
+            logger.error(f"Bot instance not found for token: {token}")
+            return 'Bot not running', 503
+
+        # Parse update
+        update = Update.de_json(request.get_json(force=True), None)
+        
+        # Process update
+        asyncio.run(instance.application.process_update(update))
+
+        # Update bot statistics
+        update_bot_stats.delay(bot.id)
+
+        return 'OK', 200
+
+    except Exception as e:
+        logger.error(f"Error processing webhook: {str(e)}")
+        return 'Error processing update', 500
+
+@bp.route('/webhook-url/<int:bot_id>')
+@login_required
+def get_webhook_url(bot_id):
+    """Get the webhook URL for a bot."""
+    bot = TelegramBot.query.filter_by(id=bot_id, user_id=current_user.id).first_or_404()
+    
+    # Get the base URL from request
+    base_url = request.url_root.rstrip('/')
+    if request.headers.get('X-Forwarded-Proto') == 'https':
+        base_url = base_url.replace('http://', 'https://')
+    
+    webhook_url = f"{base_url}/bots/webhook/{bot.bot_token}"
+    
+    return jsonify({
+        'webhook_url': webhook_url,
+        'test_command': f'curl -F "url={webhook_url}" https://api.telegram.org/bot{bot.bot_token}/setWebhook'
+    })
