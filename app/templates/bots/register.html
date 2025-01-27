@@ -1,37 +1,130 @@
 {% extends "base.html" %}
 
-{% block content %}
-<div class="row">
-    <div class="col s12 m8 offset-m2">
-        <div class="card">
-            <div class="card-content">
-                <span class="card-title">Register New Bot</span>
-                <form method="POST" action="{{ url_for('bots.register') }}">
-                    {{ form.hidden_tag() }}
-                    
-                    <div class="input-field">
-                        {{ form.bot_token(class_='validate') }}
-                        {{ form.bot_token.label }}
-                        {% for error in form.bot_token.errors %}
-                            <span class="helper-text red-text">{{ error }}</span>
-                        {% endfor %}
-                    </div>
-                    
-                    <div class="input-field">
-                        {{ form.webhook_url(class_='validate') }}
-                        {{ form.webhook_url.label }}
-                        {% for error in form.webhook_url.errors %}
-                            <span class="helper-text red-text">{{ error }}</span>
-                        {% endfor %}
-                    </div>
+{% block title %}Register Bot - Telegram Bot Manager{% endblock %}
 
-                    <button class="btn waves-effect waves-light" type="submit">
-                        Register Bot
-                        <i class="material-icons right">send</i>
-                    </button>
-                </form>
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col s12">
+            <h2>Register New Bot</h2>
+            <div class="card">
+                <div class="card-content">
+                    <form method="POST">
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="row">
+                            <div class="input-field col s12">
+                                {{ form.bot_token(class="validate") }}
+                                {{ form.bot_token.label }}
+                                {% if form.bot_token.errors %}
+                                    {% for error in form.bot_token.errors %}
+                                    <span class="helper-text red-text">{{ error }}</span>
+                                    {% endfor %}
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="input-field col s12">
+                                {{ form.bot_type(class="validate") }}
+                                {{ form.bot_type.label }}
+                                {% if form.bot_type.errors %}
+                                    {% for error in form.bot_type.errors %}
+                                    <span class="helper-text red-text">{{ error }}</span>
+                                    {% endfor %}
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="input-field col s12">
+                                {{ form.webhook_url(class="validate") }}
+                                {{ form.webhook_url.label }}
+                                {% if form.webhook_url.errors %}
+                                    {% for error in form.webhook_url.errors %}
+                                    <span class="helper-text red-text">{{ error }}</span>
+                                    {% endfor %}
+                                {% endif %}
+                                <span class="helper-text">The URL where Telegram will send updates</span>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="input-field col s12">
+                                {{ form.config(class="validate") }}
+                                {{ form.config.label }}
+                                {% if form.config.errors %}
+                                    {% for error in form.config.errors %}
+                                    <span class="helper-text red-text">{{ error }}</span>
+                                    {% endfor %}
+                                {% endif %}
+                                <span class="helper-text">Optional JSON configuration (e.g., {"admin_ids": [123456789]})</span>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col s12">
+                                <button class="btn waves-effect waves-light blue" type="submit">
+                                    <i class="material-icons left">save</i>Register Bot
+                                </button>
+                                <a href="{{ url_for('bots.list') }}" class="btn waves-effect waves-light grey">
+                                    <i class="material-icons left">arrow_back</i>Back
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
 </div>
+
+<div class="container">
+    <div class="row">
+        <div class="col s12">
+            <div class="card blue-grey lighten-5">
+                <div class="card-content">
+                    <span class="card-title">Bot Types</span>
+                    
+                    <div class="section">
+                        <h6>Number Converter Bot</h6>
+                        <p>A bot that converts numbers to words and vice versa in multiple languages.</p>
+                        <ul class="browser-default">
+                            <li>Convert numbers to words in multiple languages</li>
+                            <li>Convert words back to numbers</li>
+                            <li>Support for mathematical expressions</li>
+                            <li>Language selection via inline keyboard</li>
+                        </ul>
+                    </div>
+
+                    <div class="divider"></div>
+
+                    <div class="section">
+                        <h6>Dice MMO Game Bot</h6>
+                        <p>A multiplayer dice rolling game with daily limits and scoreboards.</p>
+                        <ul class="browser-default">
+                            <li>Daily dice rolling with limits</li>
+                            <li>Score tracking and persistence</li>
+                            <li>Global and personal statistics</li>
+                            <li>Leaderboard system</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Materialize components
+    M.AutoInit();
+    
+    // Initialize select
+    var elems = document.querySelectorAll('select');
+    M.FormSelect.init(elems);
+});
+</script>
 {% endblock %}

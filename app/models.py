@@ -26,9 +26,33 @@ class TelegramBot(db.Model):
     bot_token = db.Column(db.String(120), unique=True)
     bot_username = db.Column(db.String(64))
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    bot_type = db.Column(db.String(50), nullable=False)  # e.g., 'number_converter', 'dice_mmo'
     config = db.Column(JSON)
     is_active = db.Column(db.Boolean, default=False)
+    status = db.Column(db.String(20), default='stopped')  # stopped, running, error
     last_activity = db.Column(db.DateTime)
+    error_message = db.Column(db.Text)
+    stats = db.Column(JSON, default=lambda: {})  # Store bot statistics
+    created_at = db.Column(db.DateTime, default=db.func.now())
+    updated_at = db.Column(db.DateTime, onupdate=db.func.now())
+
+    def update_stats(self, new_stats):
+        """Update bot statistics."""
+        current_stats = self.stats or {}
+        current_stats.update(new_stats)
+        self.stats = current_stats
+        self.last_activity = db.func.now()
+
+    def get_controller_class(self):
+        """Get the appropriate bot controller class based on bot_type."""
+        from app.bots.number_converter_bot import NumberConverterBot
+        from app.bots.dice_mmo_bot import DiceMMOBot
+        
+        bot_types = {
+            'number_converter': NumberConverterBot,
+            'dice_mmo': DiceMMOBot
+        }
+        return bot_types.get(self.bot_type)
 
 @login_manager.user_loader
 def load_user(user_id):
