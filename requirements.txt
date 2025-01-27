@@ -11,3 +11,5 @@ psycopg2-binary==2.9.9
 celery==5.3.6
 redis==5.0.1
 gunicorn==21.2.0
+num2words==0.5.13
+word2number==1.1
