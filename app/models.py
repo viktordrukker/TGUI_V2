@@ -28,11 +28,11 @@ class TelegramBot(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     bot_type = db.Column(db.String(50), nullable=False)  # e.g., 'number_converter', 'dice_mmo'
     config = db.Column(JSON)
-    is_active = db.Column(db.Boolean, default=False)
     status = db.Column(db.String(20), default='stopped')  # stopped, running, error
     last_activity = db.Column(db.DateTime)
     error_message = db.Column(db.Text)
-    stats = db.Column(JSON, default=lambda: {})  # Store bot statistics
+    webhook_url = db.Column(db.String(255))  # Full webhook URL
+    container_name = db.Column(db.String(50))  # Docker container name
     created_at = db.Column(db.DateTime, default=db.func.now())
     updated_at = db.Column(db.DateTime, onupdate=db.func.now())
 

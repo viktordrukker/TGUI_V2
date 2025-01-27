@@ -8,13 +8,13 @@ import logging
 import asyncio
 from datetime import datetime
 from telegram import Update
-from app.bot_framework.manager import BotManager
+from app.bot_framework.container_manager import ContainerManager
 
 bp = Blueprint('bots', __name__, url_prefix='/bots')
 logger = logging.getLogger(__name__)
 
-# Global bot manager instance
-bot_manager = BotManager()
+# Global container manager instance
+container_manager = ContainerManager()
 
 @bp.route('/')
 @login_required
@@ -111,27 +111,14 @@ def start_bot_process(bot_id):
         if not bot:
             raise ValueError(f"Bot {bot_id} not found")
 
-        # Get the appropriate bot class
-        bot_class = bot.get_controller_class()
-        if not bot_class:
-            raise ValueError(f"Invalid bot type: {bot.bot_type}")
-
-        # Update status
-        bot.status = 'starting'
-        bot.error_message = None
-        db.session.commit()
-
-        # Initialize and start bot
-        config = json.loads(bot.config) if bot.config else {}
+        # Start bot container
+        status = container_manager.start_bot(bot.bot_token, bot.bot_type)
         
-        async def start_bot():
-            return await bot_manager.add_bot(bot_class, bot.bot_token, config)
-        
-        instance = run_async(start_bot())
-
         # Update bot record
-        bot.status = 'running'
-        bot.is_active = True
+        bot.status = status['status']
+        bot.error_message = status['error']
+        bot.webhook_url = status['webhook_url']
+        bot.container_name = status['container']
         bot.last_activity = datetime.utcnow()
         db.session.commit()
 
@@ -142,7 +129,6 @@ def start_bot_process(bot_id):
         if bot:
             bot.status = 'error'
             bot.error_message = str(e)
-            bot.is_active = False
             db.session.commit()
 
 @celery.task(name='stop_bot_process')
@@ -153,19 +139,14 @@ def stop_bot_process(bot_id):
         if not bot:
             raise ValueError(f"Bot {bot_id} not found")
 
-        # Update status
-        bot.status = 'stopping'
-        db.session.commit()
-
-        # Stop bot
-        async def stop_bot():
-            return await bot_manager.remove_bot(bot.bot_token)
+        # Stop bot container
+        container_manager.stop_bot(bot.bot_token)
         
-        run_async(stop_bot())
-
         # Update bot record
         bot.status = 'stopped'
-        bot.is_active = False
+        bot.error_message = ''
+        bot.webhook_url = ''
+        bot.container_name = ''
         bot.last_activity = datetime.utcnow()
         db.session.commit()
 
@@ -187,56 +168,44 @@ def restart_bot_process(bot_id):
     except Exception as e:
         logger.error(f"Error restarting bot {bot_id}: {str(e)}")
 
-@celery.task(name='update_bot_stats')
-def update_bot_stats(bot_id):
-    """Update bot statistics."""
+@celery.task(name='update_bot_status')
+def update_bot_status(bot_id):
+    """Update bot status from container."""
     try:
         bot = TelegramBot.query.get(bot_id)
-        if not bot or bot.status != 'running':
+        if not bot:
             return
 
-        instance = bot_manager.get_bot(bot.bot_token)
-        if instance:
-            stats = instance.get_stats()
-            bot.update_stats(stats)
-            db.session.commit()
+        # Get status from container manager
+        status = container_manager.get_bot_status(bot.bot_token)
+        
+        # Update bot record
+        bot.status = status['status']
+        bot.error_message = status['error']
+        bot.webhook_url = status['webhook_url']
+        bot.container_name = status['container']
+        bot.last_activity = datetime.utcnow()
+        db.session.commit()
 
     except Exception as e:
-        logger.error(f"Error updating bot stats {bot_id}: {str(e)}")
+        logger.error(f"Error updating bot status {bot_id}: {str(e)}")
 
-@bp.route('/webhook/<token>', methods=['POST'])
-def webhook(token):
-    """Handle webhook updates from Telegram."""
-    try:
-        # Find the bot
-        bot = TelegramBot.query.filter_by(bot_token=token).first()
-        if not bot:
-            logger.warning(f"Webhook called for unknown bot token: {token}")
-            return 'Bot not found', 404
-
-        # Get bot instance
-        instance = bot_manager.get_bot(token)
-        if not instance:
-            logger.error(f"Bot instance not found for token: {token}")
-            return 'Bot not running', 503
-
-        # Parse update
-        update = Update.de_json(request.get_json(force=True), None)
-        
-        # Process update
-        async def process_update():
-            return await instance.application.process_update(update)
-        
-        run_async(process_update())
-
-        # Update bot statistics
-        update_bot_stats.delay(bot.id)
-
-        return 'OK', 200
-
-    except Exception as e:
-        logger.error(f"Error processing webhook: {str(e)}")
-        return 'Error processing update', 500
+@bp.route('/status/<int:bot_id>')
+@login_required
+def get_bot_status(bot_id):
+    """Get bot status."""
+    bot = TelegramBot.query.filter_by(id=bot_id, user_id=current_user.id).first_or_404()
+    
+    # Get status from container
+    status = container_manager.get_bot_status(bot.bot_token)
+    
+    return jsonify({
+        'status': status['status'],
+        'error': status['error'],
+        'webhook_url': status['webhook_url'],
+        'container': status['container'],
+        'last_activity': bot.last_activity.isoformat() if bot.last_activity else None
+    })
 
 @bp.route('/webhook-url/<int:bot_id>')
 @login_required
