@@ -5,7 +5,9 @@ from app.forms import BotRegistrationForm
 from app import db, celery
 import json
 import logging
+import asyncio
 from datetime import datetime
+from telegram import Update
 from app.bot_framework.manager import BotManager
 
 bp = Blueprint('bots', __name__, url_prefix='/bots')
@@ -226,37 +228,6 @@ def webhook(token):
             return await instance.application.process_update(update)
         
         run_async(process_update())
-
-        # Update bot statistics
-        update_bot_stats.delay(bot.id)
-
-        return 'OK', 200
-
-    except Exception as e:
-        logger.error(f"Error processing webhook: {str(e)}")
-        return 'Error processing update', 500
-
-@bp.route('/webhook/<token>', methods=['POST'])
-def webhook(token):
-    """Handle webhook updates from Telegram."""
-    try:
-        # Find the bot
-        bot = TelegramBot.query.filter_by(bot_token=token).first()
-        if not bot:
-            logger.warning(f"Webhook called for unknown bot token: {token}")
-            return 'Bot not found', 404
-
-        # Get bot instance
-        instance = bot_manager.get_bot(token)
-        if not instance:
-            logger.error(f"Bot instance not found for token: {token}")
-            return 'Bot not running', 503
-
-        # Parse update
-        update = Update.de_json(request.get_json(force=True), None)
-        
-        # Process update
-        asyncio.run(instance.application.process_update(update))
 
         # Update bot statistics
         update_bot_stats.delay(bot.id)
