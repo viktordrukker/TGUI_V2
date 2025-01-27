@@ -91,6 +91,16 @@ def bot_stats(bot_id):
     bot = TelegramBot.query.filter_by(id=bot_id, user_id=current_user.id).first_or_404()
     return jsonify(bot.stats or {})
 
+def run_async(coro):
+    """Run an async function in a synchronous context."""
+    import asyncio
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    return loop.run_until_complete(coro)
+
 @celery.task(name='start_bot_process')
 def start_bot_process(bot_id):
     """Start a bot process."""
@@ -111,7 +121,11 @@ def start_bot_process(bot_id):
 
         # Initialize and start bot
         config = json.loads(bot.config) if bot.config else {}
-        instance = await bot_manager.add_bot(bot_class, bot.bot_token, config)
+        
+        async def start_bot():
+            return await bot_manager.add_bot(bot_class, bot.bot_token, config)
+        
+        instance = run_async(start_bot())
 
         # Update bot record
         bot.status = 'running'
@@ -130,7 +144,7 @@ def start_bot_process(bot_id):
             db.session.commit()
 
 @celery.task(name='stop_bot_process')
-async def stop_bot_process(bot_id):
+def stop_bot_process(bot_id):
     """Stop a bot process."""
     try:
         bot = TelegramBot.query.get(bot_id)
@@ -142,7 +156,10 @@ async def stop_bot_process(bot_id):
         db.session.commit()
 
         # Stop bot
-        await bot_manager.remove_bot(bot.bot_token)
+        async def stop_bot():
+            return await bot_manager.remove_bot(bot.bot_token)
+        
+        run_async(stop_bot())
 
         # Update bot record
         bot.status = 'stopped'
@@ -160,11 +177,11 @@ async def stop_bot_process(bot_id):
             db.session.commit()
 
 @celery.task(name='restart_bot_process')
-async def restart_bot_process(bot_id):
+def restart_bot_process(bot_id):
     """Restart a bot process."""
     try:
-        await stop_bot_process(bot_id)
-        await start_bot_process(bot_id)
+        stop_bot_process(bot_id)
+        start_bot_process(bot_id)
     except Exception as e:
         logger.error(f"Error restarting bot {bot_id}: {str(e)}")
 
@@ -184,6 +201,40 @@ def update_bot_stats(bot_id):
 
     except Exception as e:
         logger.error(f"Error updating bot stats {bot_id}: {str(e)}")
+
+@bp.route('/webhook/<token>', methods=['POST'])
+def webhook(token):
+    """Handle webhook updates from Telegram."""
+    try:
+        # Find the bot
+        bot = TelegramBot.query.filter_by(bot_token=token).first()
+        if not bot:
+            logger.warning(f"Webhook called for unknown bot token: {token}")
+            return 'Bot not found', 404
+
+        # Get bot instance
+        instance = bot_manager.get_bot(token)
+        if not instance:
+            logger.error(f"Bot instance not found for token: {token}")
+            return 'Bot not running', 503
+
+        # Parse update
+        update = Update.de_json(request.get_json(force=True), None)
+        
+        # Process update
+        async def process_update():
+            return await instance.application.process_update(update)
+        
+        run_async(process_update())
+
+        # Update bot statistics
+        update_bot_stats.delay(bot.id)
+
+        return 'OK', 200
+
+    except Exception as e:
+        logger.error(f"Error processing webhook: {str(e)}")
+        return 'Error processing update', 500
 
 @bp.route('/webhook/<token>', methods=['POST'])
 def webhook(token):
