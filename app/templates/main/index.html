@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}Welcome - Telegram Bot Manager{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col s12 center-align">
+            <h2>Welcome to Telegram Bot Manager</h2>
+            <p class="flow-text">A powerful platform to manage and monitor your Telegram bots</p>
+        </div>
+    </div>
+
+    <div class="row center-align">
+        {% if current_user.is_authenticated %}
+            <a href="{{ url_for('bots.list') }}" class="waves-effect waves-light btn-large blue">
+                <i class="material-icons left">adb</i>Manage Your Bots
+            </a>
+        {% else %}
+            <a href="{{ url_for('auth.login') }}" class="waves-effect waves-light btn-large blue">
+                <i class="material-icons left">login</i>Get Started
+            </a>
+            <a href="{{ url_for('auth.register') }}" class="waves-effect waves-light btn-large blue-grey">
+                <i class="material-icons left">person_add</i>Register
+            </a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

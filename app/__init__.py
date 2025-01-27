@@ -11,8 +11,11 @@ migrate = Migrate()
 celery = Celery(__name__, broker='redis://redis:6379/0')
 
 def create_app():
-    app = Flask(__name__)
+    app = Flask(__name__, 
+                template_folder='templates',  # Explicitly set template folder
+                static_folder='static')       # Explicitly set static folder
     app.config.from_object('config.DevelopmentConfig')
+    app.logger.setLevel('INFO')  # Set logging level to INFO for debugging
     
     # Initialize extensions
     db.init_app(app)
