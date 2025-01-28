@@ -1,5 +1,6 @@
 from app import celery, db
 from app.models import TelegramBot
+from app.routes.bots import BotMonitor
 from datetime import datetime
 import logging
 
@@ -15,7 +16,6 @@ def update_bot_status(bot_id):
             return False
 
         # Get status from Redis
-        from app.bot_framework.bot_monitor import BotMonitor
         monitor = BotMonitor()
         status = monitor.get_bot_status(bot.bot_token)
         
