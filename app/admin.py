@@ -23,15 +23,15 @@ class UserModelView(SecureModelView):
             model.set_password(form.password.data)
 
 class BotModelView(SecureModelView):
-    column_list = ['bot_username', 'owner', 'is_active', 'last_activity']
-    column_searchable_list = ['bot_username']
-    column_filters = ['is_active']
-    form_excluded_columns = ['last_activity']
+    column_list = ['bot_username', 'owner', 'status', 'bot_type', 'last_activity']
+    column_searchable_list = ['bot_username', 'bot_type']
+    column_filters = ['status', 'bot_type']
+    form_excluded_columns = ['last_activity', 'created_at', 'updated_at', 'webhook_url', 'error_message']
     
     def on_model_change(self, form, model, is_created):
         if is_created and model.bot_token:
-            from app.tasks import setup_webhook
-            setup_webhook.delay(model.id)
+            from app.tasks import update_bot_status
+            update_bot_status.delay(model.id)
 
 class CustomAdminIndexView(AdminIndexView):
     @expose('/')

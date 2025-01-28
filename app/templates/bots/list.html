@@ -1,11 +1,13 @@
 {% extends "base.html" %}
 
+{% block title %}My Bots - Telegram Bot Manager{% endblock %}
+
 {% block content %}
 <div class="container">
-    <div class="row">
+    <div class="row mb-4">
         <div class="col s12">
-            <h4>Your Telegram Bots</h4>
-            <a href="{{ url_for('bots.register') }}" class="waves-effect waves-light btn">
+            <h2>My Bots</h2>
+            <a href="{{ url_for('bots.register') }}" class="waves-effect waves-light btn blue">
                 <i class="material-icons left">add</i>Register New Bot
             </a>
         </div>
@@ -13,62 +15,112 @@
 
     <div class="row">
         {% for bot in bots %}
-        <div class="col s12 m6">
+        <div class="col s12">
             <div class="card">
                 <div class="card-content">
-                    <span class="card-title">{{ bot.bot_username or 'Unnamed Bot' }}</span>
-                    <p>Status: 
-                        {% if bot.is_active %}
-                        <span class="green-text">Active</span>
-                        {% else %}
-                        <span class="red-text">Inactive</span>
-                        {% endif %}
-                    </p>
-                    <p>Last Activity: {{ bot.last_activity.strftime('%Y-%m-%d %H:%M:%S') if bot.last_activity else 'Never' }}</p>
+                    <span class="card-title">
+                        {{ bot.bot_username or "Unnamed Bot" }}
+                        <span class="new badge {{ 'green' if bot.status == 'running' else 'red' if bot.status == 'error' else 'grey' }}" 
+                              data-badge-caption="{{ bot.status }}"></span>
+                    </span>
+                    
+                    <div class="row">
+                        <div class="col s12 m6">
+                            <p><strong>Type:</strong> {{ bot.bot_type }}</p>
+                            <p><strong>Status:</strong> {{ bot.status }}</p>
+                            <p><strong>Last Activity:</strong> 
+                                {{ bot.last_activity.strftime('%Y-%m-%d %H:%M:%S') if bot.last_activity else 'Never' }}
+                            </p>
+                            {% if bot.error_message %}
+                            <p class="red-text">
+                                <strong>Error:</strong> {{ bot.error_message }}
+                            </p>
+                            {% endif %}
+                        </div>
+                        <div class="col s12 m6">
+                            <div class="card-panel grey lighten-4">
+                                <h6>Statistics</h6>
+                                <div id="stats-{{ bot.id }}">
+                                    {% if bot.stats %}
+                                        {% for key, value in bot.stats.items() %}
+                                        <p><strong>{{ key }}:</strong> {{ value }}</p>
+                                        {% endfor %}
+                                    {% else %}
+                                        <p>No statistics available</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
+                
                 <div class="card-action">
-                    <a href="#" class="check-status" data-bot-id="{{ bot.id }}">Check Status</a>
-                    <a href="#" class="configure-bot" data-bot-id="{{ bot.id }}">Configure</a>
+                    {% if bot.status == 'running' %}
+                        <a href="{{ url_for('bots.control_bot', bot_id=bot.id, action='stop') }}" 
+                           class="waves-effect waves-light btn red">
+                            <i class="material-icons left">stop</i>Stop
+                        </a>
+                        <a href="{{ url_for('bots.control_bot', bot_id=bot.id, action='restart') }}" 
+                           class="waves-effect waves-light btn orange">
+                            <i class="material-icons left">refresh</i>Restart
+                        </a>
+                    {% else %}
+                        <a href="{{ url_for('bots.control_bot', bot_id=bot.id, action='start') }}" 
+                           class="waves-effect waves-light btn green">
+                            <i class="material-icons left">play_arrow</i>Start
+                        </a>
+                    {% endif %}
+                    
+                    <button class="waves-effect waves-light btn blue" 
+                            onclick="refreshStats({{ bot.id }})">
+                        <i class="material-icons left">refresh</i>Refresh Stats
+                    </button>
                 </div>
             </div>
         </div>
         {% else %}
         <div class="col s12">
             <div class="card-panel">
-                <span>You haven't registered any bots yet. Click the button above to get started!</span>
+                <p>No bots registered yet. Click the button above to register a new bot.</p>
             </div>
         </div>
         {% endfor %}
     </div>
 </div>
+{% endblock %}
 
 {% block scripts %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize Materialize components
-    M.AutoInit();
-
-    // Add click handlers for status checks
-    document.querySelectorAll('.check-status').forEach(function(element) {
-        element.addEventListener('click', function(e) {
-            e.preventDefault();
-            const botId = this.getAttribute('data-bot-id');
-            checkBotStatus(botId);
-        });
-    });
-});
-
-function checkBotStatus(botId) {
-    fetch(`/bots/${botId}/status`)
+function refreshStats(botId) {
+    fetch(`/bots/${botId}/stats`)
         .then(response => response.json())
-        .then(data => {
-            M.toast({html: `Checking status for bot ${botId}...`});
+        .then(stats => {
+            const statsDiv = document.getElementById(`stats-${botId}`);
+            if (Object.keys(stats).length === 0) {
+                statsDiv.innerHTML = '<p>No statistics available</p>';
+            } else {
+                statsDiv.innerHTML = Object.entries(stats)
+                    .map(([key, value]) => `<p><strong>${key}:</strong> ${value}</p>`)
+                    .join('');
+            }
+            M.toast({html: 'Statistics refreshed', classes: 'green'});
         })
         .catch(error => {
-            M.toast({html: 'Error checking bot status'});
-            console.error('Error:', error);
+            console.error('Error fetching stats:', error);
+            M.toast({html: 'Error refreshing statistics', classes: 'red'});
         });
 }
+
+// Auto-refresh stats every 30 seconds for running bots
+setInterval(() => {
+    document.querySelectorAll('[id^="stats-"]').forEach(div => {
+        const botId = div.id.split('-')[1];
+        const card = div.closest('.card');
+        const status = card.querySelector('.badge').getAttribute('data-badge-caption');
+        if (status === 'running') {
+            refreshStats(botId);
+        }
+    });
+}, 30000);
 </script>
-{% endblock %}
 {% endblock %}

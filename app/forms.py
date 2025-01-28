@@ -15,8 +15,18 @@ class RegistrationForm(FlaskForm):
     confirm_password = PasswordField('Confirm Password',
         validators=[DataRequired(), EqualTo('password')])
 
+from wtforms import SelectField
+
 class BotRegistrationForm(FlaskForm):
     bot_token = StringField('Bot Token', 
         validators=[DataRequired(), Length(min=40, max=46)])
+    bot_type = SelectField('Bot Type',
+        choices=[
+            ('number_converter', 'Number Converter Bot'),
+            ('dice_mmo', 'Dice MMO Game Bot')
+        ],
+        validators=[DataRequired()])
     webhook_url = StringField('Webhook URL',
         validators=[DataRequired(), URL()])
+    config = StringField('Additional Configuration (JSON)',
+        description='Optional JSON configuration for the bot')
